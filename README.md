@@ -18,7 +18,7 @@ Chat是基于muduo网络库构建的集群聊天系统，能够在NGINX TCP负�
 
 ### 方法一：手动编译
 ```bash
-mkdir build && mkdir bin
+mkdir build
 cd ./build
 cmake ..
 make
