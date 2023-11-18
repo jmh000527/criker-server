@@ -16,7 +16,7 @@ using json = nlohmann::json;
 
 bool ChatClient::isMainMenuRunning;
 std::atomic_bool ChatClient::g_isLoginSuccess;
-sem_t ChatClient::rwsem;
+std::counting_semaphore<1> ChatClient::rwsem(0);
 
 // 系统支持的客户端命令列表
 std::unordered_map<std::string, std::string> commandMap = {
@@ -70,13 +70,13 @@ void ChatClient::readTaskHandler(int clientfd) {
 
         if (MsgType::LOGIN_MSG_ACK == msgtype) {
             doLoginResponse(js);
-            sem_post(&rwsem);
+            rwsem.release();
             continue;
         }
 
         if (MsgType::REG_MSG_ACK == msgtype) {
             doRegResponse(js);
-            sem_post(&rwsem);
+            rwsem.release();
             continue;
         }
     }

@@ -16,7 +16,6 @@ int main(int argc, char** argv) {
     uint16_t port = std::atoi(argv[2]);
 
     int clientfd = NetworkCommunication::createClientSocket(ip, port);
-    sem_init(&ChatClient::rwsem, 0, 0);
 
     std::thread readTask(ChatClient::readTaskHandler, clientfd);
     readTask.detach();
@@ -59,7 +58,7 @@ int main(int argc, char** argv) {
                 }
 
                 // 等待信号量，由子线程处理完登录的响应消息后，通知这里
-                sem_wait(&ChatClient::rwsem);
+                ChatClient::rwsem.acquire();
 
                 if (ChatClient::g_isLoginSuccess) {
                     // Enter the chat main menu
@@ -92,7 +91,7 @@ int main(int argc, char** argv) {
                 }
 
                 // Wait for the semaphore, child thread will notify when handling the registration response
-                sem_wait(&ChatClient::rwsem);
+                ChatClient::rwsem.acquire();
 
                 break;
             }
@@ -100,7 +99,6 @@ int main(int argc, char** argv) {
                 // quit业务
             case 3:
                 close(clientfd);
-                sem_destroy(&ChatClient::rwsem);
                 exit(0);
 
             default:

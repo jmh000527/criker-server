@@ -9,6 +9,11 @@ MySQLConfig::MySQLConfig(const std::string& filename) {
     std::string section;
     std::string line;
     while (std::getline(file, line)) {
+        // 处理行中的 '\r'，如果存在的话，用于处理windows的“\r\n”换行
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();  // 移除行尾的 '\r'
+        }
+
         if (!line.empty() && line[0] == '[' && line.back() == ']') {
             section = line.substr(1, line.size() - 2);
         } else if (!section.empty()) {

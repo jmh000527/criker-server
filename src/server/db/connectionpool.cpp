@@ -43,29 +43,29 @@ ConnectionPool::ConnectionPool() {
 
 bool ConnectionPool::loadConfigFile() {
     try {
-        MySQLConfig config{ "/home/jmh/Chat/bin/mysql.cnf" };
+        MySQLConfig config{ "/home/jmh/Chat/bin/mysql.ini" };
 
-//        m_ip = config.get("mysql", "ip");
-//        m_port = std::stoi(config.get("mysql", "port"));
-//        m_username = config.get("mysql", "username");
-//        m_password = config.get("mysql", "password");
-//        m_dbname = config.get("mysql", "dbname");
+        m_ip = config.get("mysql", "ip");
+        m_port = std::stoi(config.get("mysql", "port"));
+        m_username = config.get("mysql", "username");
+        m_password = config.get("mysql", "password");
+        m_dbname = config.get("mysql", "dbname");
+
+        m_initSize = std::stoi(config.get("connection_pool", "initSize"));
+        m_maxSize = std::stoi(config.get("connection_pool", "maxSize"));
+        m_maxIdleTime = std::stoi(config.get("connection_pool", "initIdleTime"));
+        m_connectionTimeout = std::stoi(config.get("connection_pool", "connectionTimeout"));
+
+//        m_ip = "127.0.0.1";
+//        m_port = 3306;
+//        m_username = "root";
+//        m_password = "JMH20000527";
+//        m_dbname = "chat";
 //
-//        m_initSize = std::stoi(config.get("connection_pool", "initSize"));
-//        m_maxSize = std::stoi(config.get("connection_pool", "maxSize"));
-//        m_maxIdleTime = std::stoi(config.get("connection_pool", "initIdleTime"));
-//        m_connectionTimeout = std::stoi(config.get("connection_pool", "connectionTimeout"));
-
-        m_ip = "127.0.0.1";
-        m_port = 3306;
-        m_username = "root";
-        m_password = "JMH20000527";
-        m_dbname = "chat";
-
-        m_initSize = 10;
-        m_maxSize = 1024;
-        m_maxIdleTime = 6;
-        m_connectionTimeout = 100;
+//        m_initSize = 10;
+//        m_maxSize = 1024;
+//        m_maxIdleTime = 6;
+//        m_connectionTimeout = 100;
 
         return true; // 配置文件加载成功
     } catch (const std::exception& e) {
