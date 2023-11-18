@@ -17,7 +17,9 @@ mkdir build && mkdir bin
 cd ./build
 cmake ..
 make
+```
 
-### 方法二：使用自动编译脚本
+### 方法二：自动编译脚本
 ```bash
 ./autobuild.sh
+```
