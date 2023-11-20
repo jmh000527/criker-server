@@ -20,23 +20,23 @@ std::counting_semaphore<1> ChatClient::rwsem(0);
 
 // 系统支持的客户端命令列表
 std::unordered_map<std::string, std::string> commandMap = {
-    { "help",        "显示所有支持的命令，格式：help" },
-    { "chat",        "一对一聊天，格式：chat:friendid:message" },
-    { "addfriend",   "添加好友，格式：addfriend:friendid" },
+    { "help", "显示所有支持的命令，格式：help" },
+    { "chat", "一对一聊天，格式：chat:friendid:message" },
+    { "addfriend", "添加好友，格式：addfriend:friendid" },
     { "creategroup", "创建群组，格式：creategroup:groupname:groupdesc" },
-    { "addgroup",    "加入群组，格式：addgroup:groupid" },
-    { "groupchat",   "群聊，格式：groupchat:groupid:message" },
-    { "logout",      "注销，格式：logout" }};
+    { "addgroup", "加入群组，格式：addgroup:groupid" },
+    { "groupchat", "群聊，格式：groupchat:groupid:message" },
+    { "logout", "注销，格式：logout" } };
 
 // 注册系统支持的客户端命令处理
 std::unordered_map<std::string, std::function<void(int, std::string)>> commandHandlerMap{
-    { "help",        &ChatClient::help },
-    { "chat",        &ChatClient::chat },
-    { "addfriend",   &ChatClient::addfriend },
+    { "help", &ChatClient::help },
+    { "chat", &ChatClient::chat },
+    { "addfriend", &ChatClient::addfriend },
     { "creategroup", &ChatClient::creategroup },
-    { "addgroup",    &ChatClient::addgroup },
-    { "groupchat",   &ChatClient::groupchat },
-    { "logout",      &ChatClient::logout }};
+    { "addgroup", &ChatClient::addgroup },
+    { "groupchat", &ChatClient::groupchat },
+    { "logout", &ChatClient::logout } };
 
 void ChatClient::readTaskHandler(int clientfd) {
     for (;;) {
@@ -53,18 +53,18 @@ void ChatClient::readTaskHandler(int clientfd) {
 
         if (MsgType::ONE_CHAT_MSG == msgtype) {
             std::cout << getValueFromJson<std::string>(js, "time") << " [" << getValueFromJson<int>(js, "id") << "]"
-                      << getValueFromJson<std::string>(js, "name") << " said: "
-                      << getValueFromJson<std::string>(js, "msg")
-                      << std::endl;
+                << getValueFromJson<std::string>(js, "name") << " said: "
+                << getValueFromJson<std::string>(js, "msg")
+                << std::endl;
             continue;
         }
 
         if (MsgType::GROUP_CHAT_MSG == msgtype) {
             std::cout << "Group Message[" << getValueFromJson<int>(js, "groupid") << "]:"
-                      << getValueFromJson<std::string>(js, "time") << " [" << getValueFromJson<int>(js, "id") << "]"
-                      << getValueFromJson<std::string>(js, "name") << " said: "
-                      << getValueFromJson<std::string>(js, "msg")
-                      << std::endl;
+                << getValueFromJson<std::string>(js, "time") << " [" << getValueFromJson<int>(js, "id") << "]"
+                << getValueFromJson<std::string>(js, "name") << " said: "
+                << getValueFromJson<std::string>(js, "msg")
+                << std::endl;
             continue;
         }
 
@@ -91,7 +91,7 @@ void ChatClient::mainMenu(int clientfd) {
         std::string commandbuf(buffer);
         std::string command;
 
-        int index = commandbuf.find(":");
+        auto index = commandbuf.find(':');
         if (std::string::npos == index) {
             command = commandbuf;
         } else {
@@ -113,7 +113,7 @@ void ChatClient::showCurrentUserData() {
     User currentUser = UserManager::getCurrentUser();
     std::cout << "======================login user======================" << std::endl;
     std::cout << "current login user => id:" << currentUser.getId() << " name:" << currentUser.getName()
-              << std::endl;
+        << std::endl;
 
     std::cout << "----------------------friend list---------------------" << std::endl;
     std::vector<User> friendList = UserManager::getCurrentUserFriendList();
@@ -128,10 +128,9 @@ void ChatClient::showCurrentUserData() {
     if (!groupList.empty()) {
         for (const Group& group: groupList) {
             std::cout << group.getId() << " " << group.getName() << " " << group.getDesc() << std::endl;
-            const std::vector<GroupUser>& users = group.getUsers();
-            for (const GroupUser& user: users) {
+            for (const std::vector<GroupUser>& users = group.getUsers(); const GroupUser& user: users) {
                 std::cout << user.getId() << " " << user.getName() << " " << user.getState()
-                          << " " << user.getRole() << std::endl;
+                    << " " << user.getRole() << std::endl;
             }
         }
     }
@@ -144,7 +143,7 @@ void ChatClient::doRegResponse(json& responsejs) {
         std::cerr << "name is already exist, register error!" << std::endl;
     } else {
         std::cout << "name register success, userid is " << responsejs["id"]
-                  << ", do not forget it!" << std::endl;
+            << ", do not forget it!" << std::endl;
     }
 }
 
@@ -165,7 +164,7 @@ void ChatClient::doLoginResponse(json& responsejs) {
         if (responsejs.contains("friends")) {
             std::vector<User> friends;
 
-            for (const std::string& str: responsejs["friends"]) {
+            for (const auto& str: responsejs["friends"]) {
                 json js = json::parse(str);
 
                 User user;
@@ -182,7 +181,7 @@ void ChatClient::doLoginResponse(json& responsejs) {
         if (responsejs.contains("groups")) {
             std::vector<Group> groups;
 
-            for (const std::string& groupstr: responsejs["groups"]) {
+            for (const auto& groupstr: responsejs["groups"]) {
                 json grpjs = json::parse(groupstr);
                 Group group;
                 group.setId(grpjs["id"].get<int>());
@@ -190,7 +189,7 @@ void ChatClient::doLoginResponse(json& responsejs) {
                 group.setDesc(grpjs["groupdesc"]);
 
                 std::vector<GroupUser> users;
-                for (const std::string& userstr: grpjs["users"]) {
+                for (const auto& userstr: grpjs["users"]) {
                     json js = json::parse(userstr);
                     GroupUser user{ js["id"].get<int>(), js["name"], "", js["state"], js["role"] };
                     users.push_back(user);
@@ -208,18 +207,18 @@ void ChatClient::doLoginResponse(json& responsejs) {
 
         // 显示当前用户的离线消息  个人聊天信息或者群组消息
         if (responsejs.contains("offlinemsg")) {
-            const std::vector<std::string>& offlineMessages = responsejs["offlinemsg"];
-            for (const std::string& str: offlineMessages) {
-                json js = json::parse(str);
-                if (MsgType::ONE_CHAT_MSG == static_cast<MsgType>(getValueFromJson<int>(js, "msgtype"))) {
+            for (const std::vector<std::string>& offlineMessages = responsejs["offlinemsg"]; const auto& str:
+                 offlineMessages) {
+                if (json js = json::parse(str); MsgType::ONE_CHAT_MSG == static_cast<MsgType>(
+                                                    getValueFromJson<int>(js, "msgtype"))) {
                     std::cout << getValueFromJson<std::string>(js, "time") << " [" << getValueFromJson<int>(js, "id")
-                              << "]" << getValueFromJson<std::string>(js, "name") << " said: "
-                              << getValueFromJson<std::string>(js, "msg") << std::endl;
+                        << "]" << getValueFromJson<std::string>(js, "name") << " said: "
+                        << getValueFromJson<std::string>(js, "msg") << std::endl;
                 } else {
                     std::cout << "群消息[" << getValueFromJson<int>(js, "groupid") << "]:"
-                              << getValueFromJson<std::string>(js, "time") << " [" << getValueFromJson<int>(js, "id")
-                              << "]" << getValueFromJson<std::string>(js, "name") << " said: "
-                              << getValueFromJson<std::string>(js, "msg") << std::endl;
+                        << getValueFromJson<std::string>(js, "time") << " [" << getValueFromJson<int>(js, "id")
+                        << "]" << getValueFromJson<std::string>(js, "name") << " said: "
+                        << getValueFromJson<std::string>(js, "msg") << std::endl;
                 }
             }
         }
@@ -229,7 +228,7 @@ void ChatClient::doLoginResponse(json& responsejs) {
 }
 
 // "help" command handler
-void ChatClient::help(int, std::string) {
+void ChatClient::help(int, const std::string&) {
     std::cout << "show command list >>> " << std::endl;
     for (auto& p: commandMap) {
         std::cout << p.first << " : " << p.second << std::endl;
@@ -238,7 +237,7 @@ void ChatClient::help(int, std::string) {
 }
 
 // "addfriend" command handler
-void ChatClient::addfriend(int clientfd, std::string str) {
+void ChatClient::addfriend(int clientfd, const std::string& str) {
     int friendid = std::atoi(str.c_str());
 
     json js;
@@ -252,8 +251,8 @@ void ChatClient::addfriend(int clientfd, std::string str) {
 }
 
 // "chat" command handler
-void ChatClient::chat(int clientfd, std::string str) {
-    int index = str.find(":"); // friendid:message
+void ChatClient::chat(int clientfd, const std::string& str) {
+    auto index = str.find(':'); // friendid:message
     if (std::string::npos == index) {
         std::cerr << "chat command invalid!" << std::endl;
         return;
@@ -276,8 +275,8 @@ void ChatClient::chat(int clientfd, std::string str) {
 }
 
 // "creategroup" command handler  groupname:groupdesc
-void ChatClient::creategroup(int clientfd, std::string str) {
-    int index = str.find(":");
+void ChatClient::creategroup(int clientfd, const std::string& str) {
+    auto index = str.find(':');
     if (-1 == index) {
         std::cerr << "creategroup command invalid!" << std::endl;
         return;
@@ -297,7 +296,7 @@ void ChatClient::creategroup(int clientfd, std::string str) {
 }
 
 // "addgroup" command handler
-void ChatClient::addgroup(int clientfd, std::string str) {
+void ChatClient::addgroup(int clientfd, const std::string& str) {
     int groupid = std::atoi(str.c_str());
 
     json js;
@@ -310,8 +309,8 @@ void ChatClient::addgroup(int clientfd, std::string str) {
 }
 
 // "groupchat" command handler   groupid:message
-void ChatClient::groupchat(int clientfd, std::string str) {
-    int index = str.find(":");
+void ChatClient::groupchat(int clientfd, const std::string& str) {
+    auto index = str.find(':');
     if (-1 == index) {
         std::cerr << "groupchat command invalid!" << std::endl;
         return;
@@ -333,7 +332,7 @@ void ChatClient::groupchat(int clientfd, std::string str) {
 }
 
 // "logout" command handler
-void ChatClient::logout(int clientfd, std::string) {
+void ChatClient::logout(int clientfd, const std::string&) {
     json js;
     js["msgtype"] = static_cast<int>(MsgType::LOGOUT_MSG);
     js["id"] = UserManager::getCurrentUser().getId();
@@ -341,6 +340,6 @@ void ChatClient::logout(int clientfd, std::string) {
     std::string buffer = js.dump();
 
     if (NetworkCommunication::sendMessage(clientfd, buffer)) {
-        ChatClient::isMainMenuRunning = false;
+        isMainMenuRunning = false;
     }
 }

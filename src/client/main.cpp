@@ -12,8 +12,8 @@ int main(int argc, char** argv) {
         exit(-1);
     }
 
-    char* ip = argv[1];
-    uint16_t port = std::atoi(argv[2]);
+    const char* ip = argv[1];
+    const uint16_t port = std::atoi(argv[2]);
 
     int clientfd = NetworkCommunication::createClientSocket(ip, port);
 
@@ -69,7 +69,7 @@ int main(int argc, char** argv) {
                 break;
             }
 
-                // register业务
+            // register业务
             case 2: {
                 char name[50]{};
                 char pwd[50]{};
@@ -96,7 +96,7 @@ int main(int argc, char** argv) {
                 break;
             }
 
-                // quit业务
+            // quit业务
             case 3:
                 close(clientfd);
                 exit(0);
@@ -106,7 +106,5 @@ int main(int argc, char** argv) {
                 break;
         }
     }
-
-    return 0;
 }
 

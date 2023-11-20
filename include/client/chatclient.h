@@ -20,13 +20,13 @@ public:
     static void doRegResponse(json& responsejs);
     static void doLoginResponse(json& responsejs);
 
-    static void help(int fd = 0, std::string str = "");
-    static void chat(int, std::string);
-    static void addfriend(int, std::string);
-    static void creategroup(int, std::string);
-    static void addgroup(int, std::string);
-    static void groupchat(int, std::string);
-    static void logout(int clientfd, std::string);
+    static void help(int fd = 0, const std::string& str = "");
+    static void chat(int, const std::string&);
+    static void addfriend(int, const std::string&);
+    static void creategroup(int, const std::string&);
+    static void addgroup(int, const std::string&);
+    static void groupchat(int, const std::string&);
+    static void logout(int clientfd, const std::string&);
 };
 
 
