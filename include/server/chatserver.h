@@ -12,9 +12,10 @@ public:
 
     //启动服务
     void start();
+
 private:
     void onConnection(const muduo::net::TcpConnectionPtr& pConn);
-    void onMessage(const muduo::net::TcpConnectionPtr& pConn, muduo::net::Buffer* buffer, muduo::Timestamp timestamp);
+    void onMessage(const muduo::net::TcpConnectionPtr& pConn, muduo::net::Buffer* pBuffer, muduo::Timestamp timestamp);
 
     muduo::net::TcpServer m_server; //实现服务器功能的类对象
     muduo::net::EventLoop* m_loop;  //指向事件循环对象的指针

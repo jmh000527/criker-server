@@ -12,6 +12,9 @@
 
 #include "json.hpp"
 #include <muduo/net/TcpConnection.h>
+#include <openssl/bio.h>
+#include <openssl/buffer.h>
+#include <openssl/evp.h>
 
 #include <unordered_map>
 #include <functional>
@@ -68,6 +71,78 @@ public:
 
 private:
     ChatService();
+
+    std::string base64_decode(const std::string& encoded) {
+        const std::string base64_chars =
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+        auto base64_decode_char = [&](char c) -> uint8_t {
+            if (c == '=')
+                return 0;
+            size_t pos = base64_chars.find(c);
+            if (pos != std::string::npos)
+                return static_cast<uint8_t>(pos);
+            else
+                return 255; // Invalid character
+        };
+
+        std::string decoded;
+
+        for (size_t i = 0; i < encoded.size(); i += 4) {
+            uint32_t sextet_a = base64_decode_char(encoded[i]);
+            uint32_t sextet_b = base64_decode_char(encoded[i + 1]);
+            uint32_t sextet_c = base64_decode_char(encoded[i + 2]);
+            uint32_t sextet_d = base64_decode_char(encoded[i + 3]);
+
+            uint32_t triple = (sextet_a << 18) + (sextet_b << 12) + (sextet_c << 6) + sextet_d;
+
+            decoded.push_back((triple >> 16) & 0xFF);
+            if (encoded[i + 2] != '=')
+                decoded.push_back((triple >> 8) & 0xFF);
+            if (encoded[i + 3] != '=')
+                decoded.push_back(triple & 0xFF);
+        }
+
+        return decoded;
+    }
+
+    // 自行实现的简单 Base64 编码函数
+    static std::string base64_encode(const std::string& binaryData) {
+        const char base64Chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+        std::string base64String;
+        size_t i = 0;
+
+        while (i < binaryData.length()) {
+            unsigned char threeBytes[3] = { 0 };
+            size_t numBytes = 0;
+
+            for (size_t j = 0; j < 3 && i < binaryData.length(); ++j) {
+                threeBytes[j] = binaryData[i++];
+                ++numBytes;
+            }
+
+            base64String.push_back(base64Chars[(threeBytes[0] & 0xFC) >> 2]);
+            base64String.push_back(base64Chars[((threeBytes[0] & 0x03) << 4) | ((threeBytes[1] & 0xF0) >> 4)]);
+
+            if (numBytes > 1) {
+                base64String.push_back(base64Chars[((threeBytes[1] & 0x0F) << 2) | ((threeBytes[2] & 0xC0) >> 6)]);
+            } else {
+                base64String.push_back('=');
+            }
+
+            if (numBytes > 2) {
+                base64String.push_back(base64Chars[threeBytes[2] & 0x3F]);
+            } else {
+                base64String.push_back('=');
+            }
+        }
+
+        return base64String;
+    }
+
+    //构造消息
+    std::vector<char> constructMessage(const json& js, MsgType msgtype);
 
     //存储消息ID及其处理器
     std::unordered_map<MsgType, MsgHandler> m_msgHandlerMap;

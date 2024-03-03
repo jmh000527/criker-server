@@ -11,6 +11,8 @@
 
 using json = nlohmann::json;
 
+constexpr int MAX_PACKAGE_SIZE = 10 * 1024 * 1024;
+
 ChatServer::ChatServer(muduo::net::EventLoop* loop, const muduo::net::InetAddress& listenAddr,
                        const muduo::string& nameArg)
     : m_server{ loop, listenAddr, nameArg }, m_loop{ loop } {
@@ -19,7 +21,8 @@ ChatServer::ChatServer(muduo::net::EventLoop* loop, const muduo::net::InetAddres
 
     //注册消息回调
     m_server.setMessageCallback(
-        std::bind(&ChatServer::onMessage, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+                                std::bind(&ChatServer::onMessage, this, std::placeholders::_1, std::placeholders::_2,
+                                          std::placeholders::_3));
 
     //设置线程数量
     m_server.setThreadNum(4);
@@ -39,19 +42,50 @@ void ChatServer::onConnection(const muduo::net::TcpConnectionPtr& pConn) {
     }
 }
 
-void ChatServer::onMessage(const muduo::net::TcpConnectionPtr& pConn, muduo::net::Buffer* buffer,
+void ChatServer::onMessage(const muduo::net::TcpConnectionPtr& pConn, muduo::net::Buffer* pBuffer,
                            muduo::Timestamp timestamp) {
-    //获取数据
-    std::string buf{ buffer->retrieveAllAsString() };
+    json js;
+    uint16_t messageType;
+    uint32_t messageLength;
 
-    //测试json
-    std::cout << buf << std::endl;
+    while (pBuffer->readableBytes() >= sizeof(MessageHeader)) {
+        // 读取包头，但不消耗缓冲区中的数据
+        MessageHeader header;
+        memcpy(&header, pBuffer->peek(), sizeof(MessageHeader));
 
-    //数据反序列化
-    json js{ json::parse(buf) };
+        // 转换字节序，获取包头中各项的值
+        messageType = muduo::net::sockets::networkToHost16(header.type);
+        messageLength = muduo::net::sockets::networkToHost32(header.length);
 
-    auto msgType = static_cast<MsgType>(getValueFromJson<int>(js, "msgtype"));
-    auto handler{ ChatService::getInstance()->getHandler(msgType) };
+        // 处理非法包
+        if (messageLength <= 0 || messageLength > MAX_PACKAGE_SIZE) {
+            LOG_INFO << "Illegal package, bodysize: " << header.length << ", close TcpConnection, client: " << pConn->
+peerAddress().toPort();
+            pConn->forceClose();
 
+            return;
+        }
+
+        // 检查是否收到完整的包
+        if (pBuffer->readableBytes() >= sizeof(MessageHeader) + messageLength) {
+            // 消耗包头数据
+            pBuffer->retrieve(sizeof(MessageHeader));
+            LOG_INFO << "MessageHeader Received: " << sizeof(MessageHeader) << " bytes";
+            LOG_INFO << "ReadableBytes: " << pBuffer->readableBytes() << " bytes";
+
+            // 读取消息体
+            std::string message = pBuffer->retrieveAsString(messageLength);
+            js = json::parse(message);
+
+            // 处理消息
+            LOG_INFO << "Received message: type=" << messageType
+                     << ", length=" << messageLength
+                     << ", content=" << message;
+        } else {
+            return;
+        }
+    }
+
+    auto handler{ ChatService::getInstance()->getHandler(static_cast<MsgType>(messageType)) };
     handler(pConn, js, timestamp);
 }

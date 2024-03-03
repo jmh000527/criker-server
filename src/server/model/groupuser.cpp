@@ -2,8 +2,10 @@
 
 #include <utility>
 
-GroupUser::GroupUser(int id, std::string name, std::string password, std::string state, std::string role)
-    : User(id, std::move(name), std::move(password), std::move(state)), m_role{ std::move(role) } {}
+GroupUser::GroupUser(std::string base64String, int id, std::string name, std::string password, std::string state,
+                     std::string role)
+    : User(std::move(base64String), id, std::move(name), std::move(password), std::move(state)),
+      m_role{ std::move(role) } {}
 
 std::string GroupUser::getRole() const {
     return m_role;

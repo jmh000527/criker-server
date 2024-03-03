@@ -25,7 +25,10 @@ void ChatService::login(const muduo::net::TcpConnectionPtr& pConn, json& js, mud
             response["errno"] = 2;
             response["errmsg"] = "this account is using, try another.";
 
-            pConn->send(response.dump());
+            //构造消息
+            std::vector<char> messageData = constructMessage(response, MsgType::LOGIN_MSG_ACK);
+
+            pConn->send(messageData.data(), messageData.size());
         } else {
             //登录成功
 
@@ -47,6 +50,7 @@ void ChatService::login(const muduo::net::TcpConnectionPtr& pConn, json& js, mud
             response["errno"] = 0;
             response["id"] = user.getId();
             response["name"] = user.getName();
+            response["headimage"] = user.getHeadImage();
 
             //查询该用户是否有离线消息
             auto offlineMsgs{ m_offlineMessageModel.query(user.getId()) };
@@ -73,8 +77,9 @@ void ChatService::login(const muduo::net::TcpConnectionPtr& pConn, json& js, mud
                     js["id"] = friendUser.getId();
                     js["name"] = friendUser.getName();
                     js["state"] = friendUser.getState();
+                    js["headimage"] = friendUser.getHeadImage();
 
-                    friendsInfo.push_back(std::move(js.dump()));
+                    friendsInfo.push_back(js.dump());
                 }
 
                 //向响应中添加当前账户好友信息
@@ -82,22 +87,23 @@ void ChatService::login(const muduo::net::TcpConnectionPtr& pConn, json& js, mud
             }
 
             //查询用户加入的群组
-            auto groupsQuery{ m_groupModel.queryGroups(user.getId()) };
+            std::vector<Group> groupsQuery{ m_groupModel.queryGroups(user.getId()) };
             if (!groupsQuery.empty()) {
-                std::vector<std::string> groups;    //保存所有用户加入的群组，及每个群组用户的信息
+                std::vector<std::string> groups; //保存所有用户加入的群组，及每个群组用户的信息
                 for (auto& group: groupsQuery) {
                     json groupJson;
                     groupJson["id"] = group.getId();
                     groupJson["groupname"] = group.getName();
                     groupJson["groupdesc"] = group.getDesc();
 
-                    std::vector<std::string> groupUsers;    //保存每个群组中的所有群组用户信息
+                    std::vector<std::string> groupUsers; //保存每个群组中的所有群组用户信息
                     for (auto& groupUser: group.getUsers()) {
                         json js;
                         js["id"] = groupUser.getId();
                         js["name"] = groupUser.getName();
                         js["state"] = groupUser.getState();
                         js["role"] = groupUser.getRole();
+                        js["headimage"] = groupUser.getHeadImage();
 
                         groupUsers.push_back(js.dump());
                     }
@@ -109,8 +115,11 @@ void ChatService::login(const muduo::net::TcpConnectionPtr& pConn, json& js, mud
                 response["groups"] = groups;
             }
 
+            //构造消息
+            std::vector<char> messageData = constructMessage(response, MsgType::LOGIN_MSG_ACK);
+
             //发送登陆成功确认，LOGIN_MSG_ACK
-            pConn->send(response.dump());
+            pConn->send(messageData.data(), messageData.size());
 
             LOG_INFO << "用户：" << user.getName() << " ID：" << user.getId() << " 登陆成功！";
         }
@@ -122,7 +131,10 @@ void ChatService::login(const muduo::net::TcpConnectionPtr& pConn, json& js, mud
         response["errno"] = 1;
         response["errmsg"] = "invalid id or password!";
 
-        pConn->send(response.dump());
+        //构造消息
+        std::vector<char> messageData = constructMessage(response, MsgType::LOGIN_MSG_ACK);
+
+        pConn->send(messageData.data(), messageData.size());
     }
 }
 
@@ -130,7 +142,12 @@ void ChatService::reg(const muduo::net::TcpConnectionPtr& pConn, json& js, muduo
     auto name{ getValueFromJson<std::string>(js, "name") };
     auto password{ getValueFromJson<std::string>(js, "password") };
 
-    User user{ -1, name, password, "offline" };
+    std::string base64Image = js["headimage"];
+
+    // 将 Base64 解码为二进制数据
+    std::string imageBinary = base64_decode(base64Image);
+
+    User user{ imageBinary, -1, name, password, "offline" };
     if (bool res = m_userModel.insert(user); res) {
         LOG_INFO << "注册成功！";
 
@@ -139,7 +156,9 @@ void ChatService::reg(const muduo::net::TcpConnectionPtr& pConn, json& js, muduo
         response["errno"] = 0;
         response["id"] = user.getId();
 
-        pConn->send(response.dump());
+        //构造消息
+        std::vector<char> messageData = constructMessage(response, MsgType::REG_MSG_ACK);
+        pConn->send(messageData.data(), messageData.size());
     } else {
         LOG_INFO << "注册失败！";
 
@@ -147,24 +166,45 @@ void ChatService::reg(const muduo::net::TcpConnectionPtr& pConn, json& js, muduo
         response["msgtype"] = static_cast<int>(MsgType::REG_MSG_ACK);
         response["errno"] = 1;
 
-        pConn->send(response.dump());
+        //构造消息
+        std::vector<char> messageData = constructMessage(response, MsgType::REG_MSG_ACK);
+        pConn->send(messageData.data(), messageData.size());
     }
+}
+
+std::vector<char> ChatService::constructMessage(const json& js, MsgType msgtype) {
+    // 构造包头
+    MessageHeader header;
+    header.type = htons(static_cast<uint16_t>(msgtype)); // 你可以定义不同的消息类型
+    header.length = htonl(static_cast<uint32_t>(js.dump().size()));
+
+    // 合并包头和消息为一个连续的字节数组
+    std::vector<char> messageData(sizeof(header) + js.dump().size());
+
+    std::memcpy(messageData.data(), &header, sizeof(header));
+    std::memcpy(messageData.data() + sizeof(header), js.dump().c_str(), js.dump().size());
+
+    auto str = js.dump();
+
+    LOG_INFO << "SentBytes: " << js.dump().size() << " bytes";
+
+    return messageData;
 }
 
 void ChatService::oneChat(const muduo::net::TcpConnectionPtr& pConn, json& js, muduo::Timestamp timestamp) {
     auto toId{ getValueFromJson<int>(js, "toid") };
 
-    bool userOnline{ false };
-
-    {
+    bool userOnline{ false }; {
         std::lock_guard<std::mutex> lockGuard{ m_connMutex };
         auto iter{ m_userConnMap.find(toId) };
         if (iter != std::end(m_userConnMap)) {
             //ID为toId的用户在线
             userOnline = true;
 
-            //向用户转发消息
-            iter->second->send(js.dump());
+            std::vector<char> messageData = constructMessage(js, MsgType::ONE_CHAT_MSG);
+
+            // 发送整体消息
+            iter->second->send(messageData.data(), messageData.size());
 
             return;
         }
@@ -173,6 +213,7 @@ void ChatService::oneChat(const muduo::net::TcpConnectionPtr& pConn, json& js, m
     // 查询toid是否在线,区分是否在其他服务器上登陆
     User user{ m_userModel.query(toId) };
     if (user.getState() == "online") {
+        // std::vector<char> messageData = constructMessage(js, MsgType::ONE_CHAT_MSG);
         m_redis.publish(toId, js.dump());
     } else {
         //ID为toId的用户不在线，也没有登陆在其他服务器上，存储离线消息
@@ -186,7 +227,6 @@ void ChatService::addFriend(const muduo::net::TcpConnectionPtr& pConn, json& js,
 
     //存储好友信息
     m_friendModel.insert(Friend{ userid, friendid });
-
 }
 
 void ChatService::createGroup(const muduo::net::TcpConnectionPtr& pConn, json& js, muduo::Timestamp timestamp) {
@@ -221,7 +261,11 @@ void ChatService::groupChat(const muduo::net::TcpConnectionPtr& pConn, json& js,
 
         if (iter != std::end(m_userConnMap)) {
             //当前群用户在线，转发群消息
-            iter->second->send(js.dump());
+            std::vector<char> messageData = constructMessage(js, MsgType::GROUP_CHAT_MSG);
+
+            // 发送整体消息
+            iter->second->send(messageData.data(), messageData.size());
+            // iter->second->send(js.dump());
         } else {
             // 查询toid是否在线，是否在其他服务器上登陆
             User user{ m_userModel.query(id) };
@@ -237,9 +281,7 @@ void ChatService::groupChat(const muduo::net::TcpConnectionPtr& pConn, json& js,
 
 void ChatService::logout(const muduo::net::TcpConnectionPtr& pConn, json& js, muduo::Timestamp timestamp) {
     auto userid{ getValueFromJson<int>(js, "id") };
-    auto name{ getValueFromJson<std::string>(js, "name") };
-
-    {
+    auto name{ getValueFromJson<std::string>(js, "name") }; {
         std::lock_guard<std::mutex> lockGuard(m_connMutex);
         auto iter = m_userConnMap.find(userid);
         if (iter != std::end(m_userConnMap)) {
@@ -258,9 +300,7 @@ void ChatService::logout(const muduo::net::TcpConnectionPtr& pConn, json& js, mu
 }
 
 void ChatService::clientCloseException(const muduo::net::TcpConnectionPtr& pConn) {
-    User user;
-
-    {
+    User user; {
         std::lock_guard<std::mutex> lockGuard{ m_connMutex };
         for (auto [key, value]: m_userConnMap) {
             if (value == pConn) {
@@ -305,7 +345,11 @@ void ChatService::handleRedisSubscribeMessage(int userid, const std::string& msg
     std::lock_guard<std::mutex> lock{ m_connMutex };
     auto iter = m_userConnMap.find(userid);
     if (iter != std::end(m_userConnMap)) {
-        iter->second->send(msg);
+        //构造消息
+        std::vector<char> messageData = constructMessage(json::parse(msg),
+                                                         getValueFromJson<MsgType>(json::parse(msg), "msgtype"));
+
+        iter->second->send(messageData.data(), messageData.size());
         return;
     }
 
@@ -344,6 +388,7 @@ ChatService::ChatService() {
     if (m_redis.connect()) {
         //设置上报消息的回调
         m_redis.initNotifyHandler(
-            std::bind(&ChatService::handleRedisSubscribeMessage, this, std::placeholders::_1, std::placeholders::_2));
+                                  std::bind(&ChatService::handleRedisSubscribeMessage, this, std::placeholders::_1,
+                                            std::placeholders::_2));
     }
 }

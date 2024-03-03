@@ -20,7 +20,8 @@ bool FriendModel::insert(Friend aFriend) {
 std::vector<User> FriendModel::query(int userid) {
     //组装SQL
     char sql[1024]{};
-    sprintf(sql, "select a.id,a.name,a.state from user a inner join friend b on b.friendid = a.id where b.userid = %d",
+    sprintf(sql,
+            "select a.id,a.name,a.state,TO_BASE64(a.head_Image) from user a inner join friend b on b.friendid = a.id where b.userid = %d",
             userid);
 
     //从连接池获取MySQL连接
@@ -31,7 +32,7 @@ std::vector<User> FriendModel::query(int userid) {
 
     if (auto res = pConn->query(sql); res) {
         while (auto row = mysql_fetch_row(res)) {
-            User user{ std::atoi(row[0]), row[1], "", row[2] };
+            User user{ row[3], std::atoi(row[0]), row[1], "", row[2] };
 
             users.push_back(user);
         }

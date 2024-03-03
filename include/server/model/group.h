@@ -21,7 +21,12 @@ public:
     void setDesc(const std::string& desc);
 
     std::vector<GroupUser> getUsers() const;
+
+    void setUser(const GroupUser& group_user);
+    void setUser(GroupUser&& group_user);
+
     void setUsers(std::vector<GroupUser> groupUsers);
+
 private:
     int m_id;
     std::string m_name;

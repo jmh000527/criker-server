@@ -33,4 +33,12 @@ std::vector<GroupUser> Group::getUsers() const {
     return m_groupusers;
 }
 
+void Group::setUser(const GroupUser& group_user) {
+    m_groupusers.push_back(group_user);
+}
+
+// 右值版本
+void Group::setUser(GroupUser&& group_user) {
+    m_groupusers.push_back(std::move(group_user));
+}
 

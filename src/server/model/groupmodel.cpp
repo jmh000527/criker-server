@@ -60,16 +60,17 @@ std::vector<Group> GroupModel::queryGroups(int userid) {
     }
 
     //查询用户所在群组的所有用户信息
-    for (auto& group: groups) {
+    for (Group& group: groups) {
         memset(sql, 0, sizeof sql);
         sprintf(sql,
-                "select a.id,a.name,a.state from user a inner join group_user b on b.userid = a.id where b.groupid = %d",
+                "SELECT a.id, a.name, a.state, b.grouprole, TO_BASE64(a.head_image) FROM user a INNER JOIN group_user b ON b.userid = a.id WHERE b.groupid = %d",
                 group.getId());
 
         if (auto res = pConn->query(sql); res) {
             //查出userid所有的群组信息
             while (auto row = mysql_fetch_row(res)) {
-                group.getUsers().emplace_back(std::stoi(row[0]), row[1], "", row[2], row[3]);
+                // group.getUsers().emplace_back(std::stoi(row[0]), row[1], "", row[2], row[3]);
+                group.setUser(GroupUser{ row[4], std::stoi(row[0]), row[1], "", row[2], row[3] });
             }
 
             mysql_free_result(res);
